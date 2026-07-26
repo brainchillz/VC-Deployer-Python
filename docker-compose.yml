@@ -1,7 +1,9 @@
 services:
   vmdeploy:
     build: .
-    image: vmdeploy:latest
+    # Published by .github/workflows/docker.yml on every push to main;
+    # `docker compose pull` upgrades without a local build.
+    image: ghcr.io/brainchillz/vc-deployer-python:latest
     ports:
       - "8000:8000"
     env_file:
