@@ -25,6 +25,11 @@ class DeploySpec(BaseModel):
     cidr: str = "24"
     gateway: Optional[str] = None
     dns: str = "1.1.1.1, 8.8.8.8"
+    # IPAM mode: the address, gateway, DNS servers and the published DNS name
+    # all come from Nexus IPAM's /api/provision (needs IPAM_URL/IPAM_TOKEN
+    # configured). Mutually exclusive with DHCP and with a hand-typed IP.
+    ipam: bool = False
+    ipam_network: Optional[str] = None   # CIDR or IPAM network name (default: IPAM_NETWORK)
 
     # Placement overrides (each defaults to the container's GOVC_* env when None)
     network: Optional[str] = None      # NIC portgroup   -> vm.clone -net
@@ -52,7 +57,11 @@ class DeploySpec(BaseModel):
         """Cross-field checks the route surfaces as 400s."""
         if self.os_family == "windows" and not self.dhcp:
             raise ValueError("Windows deploys are DHCP-only for now (choose DHCP)")
-        if not self.dhcp:
+        if self.ipam and self.dhcp:
+            raise ValueError("IPAM allocation assigns a static address — turn DHCP off")
+        if self.ipam and self.ip:
+            raise ValueError("IPAM mode picks the address — leave the IP field empty")
+        if not self.dhcp and not self.ipam:
             if not self.ip or not self.gateway:
                 raise ValueError("Static mode requires both an IP and a gateway (or choose DHCP)")
         if not self.password and not self.ssh_key:

@@ -101,7 +101,11 @@
     <div class="seg" id="netseg">
       <button type="button" data-net="static" class="on">Static IP</button>
       <button type="button" data-net="dhcp">DHCP</button>
+      <button type="button" data-net="ipam" id="ipamBtn" style="display:none">IPAM</button>
     </div>
+    <div class="hint" id="ipamHint" style="display:none">Nexus IPAM picks the next free address,
+      fills gateway/DNS from the network, and publishes the hostname to the DNS servers before
+      the clone starts — the VM boots resolvable. A failed deploy releases it all again.</div>
 
     <div id="staticFields">
       <div class="row">
@@ -270,6 +274,7 @@ async function loadTemplates() {
       o.value = i; o.textContent = t.name; sel.appendChild(o);
     });
     if (cfg.default_ssh_pubkey) $("sshkey").value = cfg.default_ssh_pubkey;
+    if (cfg.ipam_enabled) $("ipamBtn").style.display = "";
     sel.onchange = onTemplate; onTemplate();
   } catch(e) {
     $("tplHint").textContent = "Could not reach vCenter — check the connection in ⚙ Settings or the container's env.";
@@ -291,6 +296,7 @@ $("netseg").onclick = e => {
   netMode = e.target.dataset.net;
   [...$("netseg").children].forEach(b => b.classList.toggle("on", b===e.target));
   $("staticFields").style.display = netMode === "static" ? "" : "none";
+  $("ipamHint").style.display = netMode === "ipam" ? "" : "none";
 };
 
 /* ---- settings dialog ---- */
@@ -379,9 +385,11 @@ $("deployBtn").onclick = async () => {
   const spec = {
     template: t.name, admin_group: t.admin_group, ssh_service: t.ssh_service,
     iface: t.iface, os_family: t.os_family || "linux", username: $("username").value.trim(),
-    name: $("name").value.trim(), dhcp: netMode === "dhcp",
-    ip: $("ip").value.trim(), cidr: $("cidr").value.trim() || "24",
-    gateway: $("gateway").value.trim(), dns: $("dns").value.trim() || "1.1.1.1, 8.8.8.8",
+    name: $("name").value.trim(), dhcp: netMode === "dhcp", ipam: netMode === "ipam",
+    ip: netMode === "ipam" ? null : $("ip").value.trim(),
+    cidr: $("cidr").value.trim() || "24",
+    gateway: netMode === "ipam" ? null : $("gateway").value.trim(),
+    dns: $("dns").value.trim() || "1.1.1.1, 8.8.8.8",
     password: $("password").value || null, ssh_key: $("sshkey").value.trim() || null,
     pwauth: $("pwauth").checked,
     network: $("network").value || null, datastore: $("datastore").value || null,

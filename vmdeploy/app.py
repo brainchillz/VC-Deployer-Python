@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from . import config, core, govc, jobs
+from . import config, core, govc, ipam, jobs
 from .models import DeploySpec
 
 _basic = HTTPBasic(auto_error=False)
@@ -55,6 +55,8 @@ def ui_config() -> dict:
         "default_network": config.get("GOVC_NETWORK").strip(),
         "default_datastore": config.get("GOVC_DATASTORE").strip(),
         "auth_configured": config.auth_configured(),
+        "ipam_enabled": ipam.enabled(),
+        "ipam_network": config.get("IPAM_NETWORK").strip(),
     }
 
 
@@ -115,6 +117,8 @@ def put_settings(body: dict) -> dict:
 async def deploy(spec: DeploySpec) -> dict:
     try:
         spec.validate_request()
+        if spec.ipam and not ipam.enabled():
+            raise ValueError("IPAM mode needs IPAM_URL and IPAM_TOKEN configured")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     jid = jobs.create(spec.name)
@@ -126,10 +130,31 @@ async def _run_deploy(jid: str, spec: DeploySpec) -> None:
     def progress(step: str) -> None:
         jobs.update(jid, step=step)
 
+    allocated = False
+    dns_name = spec.hostname or spec.name
     try:
+        if spec.ipam:
+            # Address + published DNS in one call — the VM boots resolvable.
+            progress("allocating")
+            info = await asyncio.to_thread(ipam.provision, dns_name, spec.ipam_network)
+            allocated = True
+            spec.ip = info["ip"]
+            if info.get("prefixlen"):
+                spec.cidr = str(info["prefixlen"])
+            spec.gateway = info["gateway"] or spec.gateway
+            if info.get("dns"):
+                spec.dns = ", ".join(info["dns"])
+            spec.dhcp = False
+            jobs.update(jid, ip=spec.ip)
         ip = await asyncio.to_thread(core.deploy, spec, progress)
+        if spec.ipam:
+            await asyncio.to_thread(ipam.register_vm, spec.name, spec.ip)
         jobs.update(jid, status="done", step="done", ip=ip)
     except Exception as e:  # surface any failure to the UI
+        if allocated:
+            # A failed clone must not leave a name pointing at nothing — the
+            # rollback releases the address and re-pushes DNS without it.
+            await asyncio.to_thread(ipam.deprovision_quiet, dns_name)
         jobs.update(jid, status="failed", step="failed", error=str(e))
 
 

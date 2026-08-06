@@ -17,16 +17,19 @@ import json
 import os
 from pathlib import Path
 
-# vCenter connection — sensitive; editing these requires app auth.
-CONNECTION_KEYS = ["GOVC_URL", "GOVC_USERNAME", "GOVC_PASSWORD", "GOVC_INSECURE"]
+# vCenter connection — sensitive; editing these requires app auth. The IPAM
+# token rides in the same class: it is an admin bearer secret.
+CONNECTION_KEYS = ["GOVC_URL", "GOVC_USERNAME", "GOVC_PASSWORD", "GOVC_INSECURE",
+                  "IPAM_TOKEN"]
 # Placement + deploy defaults — non-secret, editable without auth.
 PLACEMENT_KEYS = ["GOVC_DATACENTER", "GOVC_DATASTORE", "GOVC_RESOURCE_POOL",
                   "GOVC_FOLDER", "GOVC_NETWORK"]
-DEFAULT_KEYS = ["DEFAULT_PROFILE", "DEFAULT_CIDR", "DEFAULT_DNS", "DEFAULT_SSH_PUBKEY"]
+DEFAULT_KEYS = ["DEFAULT_PROFILE", "DEFAULT_CIDR", "DEFAULT_DNS", "DEFAULT_SSH_PUBKEY",
+                "IPAM_URL", "IPAM_NETWORK"]
 
 GOVC_KEYS = CONNECTION_KEYS + PLACEMENT_KEYS
 ALL_KEYS = GOVC_KEYS + DEFAULT_KEYS
-SECRET_KEYS = {"GOVC_PASSWORD"}
+SECRET_KEYS = {"GOVC_PASSWORD", "IPAM_TOKEN"}
 
 
 def _path() -> Path:
