@@ -5,69 +5,96 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VM Deployer</title>
 <style>
-  :root { --bg:#0f1420; --card:#171e2e; --line:#26304a; --fg:#e6ebf5; --mut:#8b97b1;
-          --accent:#4f8cff; --ok:#37d67a; --err:#ff5c6c; --pend:#f0b429; }
+  /* Nexus identity (matches the dashboard/DNSMAQ/IPAM restyle): warm dark
+     grey base, neutral hairline borders, burnt orange spent as the accent.
+     Semantics: ok = olive, pending = amber, error = cold brick — not the
+     stock framework palettes. Radius 2px, figures in the mono face.
+     Light theme follows the OS (prefers-color-scheme) — this page has no
+     settings surface for a toggle. */
+  :root { --bg:#1b1c1e; --card:#212225; --well:#161719; --line:#3a3833; --fg:#d8d4cc;
+          --mut:#8f8b82; --accent:#c1550f; --accent-hov:#d96a1e;
+          --ok:#82a35c; --err:#cf545e; --pend:#d09c3c;
+          --mono-f:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#efece6; --card:#f9f7f3; --well:#efece6; --line:#d5cfc4; --fg:#2b2721;
+            --mut:#767061; --accent:#a84a0c; --accent-hov:#8f3d08;
+            --ok:#5f7d3d; --err:#a83440; --pend:#96701d; }
+  }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg);
-         font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+         font:13.5px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
   .wrap { max-width:640px; margin:0 auto; padding:28px 18px 60px; }
   .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:22px; }
-  h1 { font-size:22px; margin:0 0 4px; }
-  .sub { color:var(--mut); margin:0; font-size:13px; }
-  .gear { flex:none; width:40px; height:40px; border-radius:9px; background:var(--card);
-          border:1px solid var(--line); color:var(--fg); font-size:18px; cursor:pointer; }
-  .gear:hover { border-color:var(--accent); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .card + .card { margin-top:14px; }
-  .card-title { font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+  h1 { font-size:18px; margin:0 0 4px; letter-spacing:.01em; }
+  .sub { color:var(--mut); margin:0; font-size:12.5px; }
+  .gear { flex:none; width:36px; height:36px; border-radius:2px; background:transparent;
+          border:1px solid var(--line); color:var(--mut); font-size:16px; cursor:pointer; }
+  .gear:hover { border-color:var(--mut); color:var(--fg); }
+  .gear:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:2px; padding:14px 16px; }
+  .card + .card { margin-top:10px; }
+  .card-title { font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
                 color:var(--mut); margin:0 0 2px; }
   .card-title + label, .card-title + .row { margin-top:8px; }
-  label { display:block; font-size:13px; color:var(--mut); margin:14px 0 5px; }
-  input, select, textarea { width:100%; padding:9px 11px; background:#0e1422; color:var(--fg);
-         border:1px solid var(--line); border-radius:8px; font:inherit; }
+  label { display:block; font-size:12.5px; color:var(--mut); margin:12px 0 5px; }
+  input, select, textarea { width:100%; padding:7px 10px; background:var(--well); color:var(--fg);
+         border:1px solid var(--line); border-radius:2px; font:inherit; }
   input:disabled, select:disabled, textarea:disabled { opacity:.5; cursor:not-allowed; }
   input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
-  textarea { resize:vertical; min-height:60px; font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+  textarea { resize:vertical; min-height:60px; font-family:var(--mono-f); font-size:12px; }
   .row { display:flex; gap:12px; } .row > div { flex:1; }
-  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-  .seg button { background:#0e1422; color:var(--mut); border:0; padding:8px 18px; cursor:pointer; font:inherit; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:2px; overflow:hidden; }
+  .seg button { background:var(--well); color:var(--mut); border:0; padding:7px 16px; cursor:pointer; font:inherit; }
   .seg button.on { background:var(--accent); color:#fff; }
   .hint { font-size:12px; color:var(--mut); margin-top:5px; }
-  .deploy { margin-top:22px; width:100%; padding:12px; font-size:15px; font-weight:600;
-            background:var(--accent); color:#fff; border:0; border-radius:9px; cursor:pointer; }
+  .deploy { margin-top:22px; width:100%; padding:11px; font-size:14px; font-weight:600;
+            background:var(--accent); color:#fff; border:0; border-radius:2px; cursor:pointer;
+            transition:background .15s; }
+  .deploy:hover { background:var(--accent-hov); }
+  .deploy:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
   .deploy:disabled { opacity:.5; cursor:default; }
   .steps { list-style:none; padding:0; margin:16px 0 0; }
-  .steps li { padding:6px 0 6px 26px; position:relative; color:var(--mut); font-size:14px; }
+  .steps li { padding:5px 0 5px 26px; position:relative; color:var(--mut); font-size:13px;
+              font-family:var(--mono-f); }
   .steps li::before { content:"○"; position:absolute; left:4px; }
   .steps li.done { color:var(--fg); } .steps li.done::before { content:"●"; color:var(--ok); }
   .steps li.active { color:var(--fg); } .steps li.active::before { content:"◐"; color:var(--pend); }
-  .result { margin-top:18px; padding:16px; border-radius:10px; display:none; }
-  .result.ok { display:block; background:#12301f; border:1px solid #1f6b3f; }
-  .result.err { display:block; background:#301418; border:1px solid #7a2530; }
-  .result code { background:#0009; padding:2px 6px; border-radius:5px; }
-  .mono { font-family:ui-monospace,Menlo,monospace; }
-  .err-msg { color:var(--err); font-size:13px; margin-top:10px; min-height:18px; }
-  .chk { display:flex; align-items:center; gap:8px; margin-top:8px; color:var(--fg); font-size:14px; }
-  .chk input { width:auto; }
+  /* Results: hairline box with a 2px semantic left tick — no tinted slab. */
+  .result { margin-top:18px; padding:12px 16px; border-radius:2px; display:none;
+            border:1px solid var(--line); border-left-width:2px; }
+  .result.ok { display:block; border-left-color:var(--ok); }
+  .result.ok b { color:var(--ok); }
+  .result.err { display:block; border-left-color:var(--err); color:var(--err); }
+  .result code { background:var(--well); padding:2px 6px; border-radius:2px; }
+  .mono { font-family:var(--mono-f); font-variant-numeric:tabular-nums; }
+  .err-msg { color:var(--err); font-size:12.5px; margin-top:10px; min-height:18px; }
+  .chk { display:flex; align-items:center; gap:8px; margin-top:8px; color:var(--fg); font-size:13px; }
+  .chk input { width:auto; accent-color:var(--accent); }
   /* settings modal */
   .modal-backdrop { display:none; position:fixed; inset:0; background:#000a; z-index:10;
                     align-items:flex-start; justify-content:center; padding:36px 16px; overflow:auto; }
-  .modal { background:var(--card); border:1px solid var(--line); border-radius:12px;
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:3px;
            width:100%; max-width:560px; }
   .modal-head { display:flex; align-items:center; justify-content:space-between;
-                padding:16px 20px; border-bottom:1px solid var(--line); }
-  .modal-head h2 { margin:0; font-size:17px; }
+                padding:13px 18px; border-bottom:1px solid var(--line); }
+  .modal-head h2 { margin:0; font-size:15px; }
   .iconbtn { background:none; border:0; color:var(--mut); font-size:20px; cursor:pointer; line-height:1; }
-  .modal-body { padding:4px 20px 18px; }
+  .iconbtn:hover { color:var(--fg); }
+  .modal-body { padding:4px 18px 16px; }
   .modal-foot { display:flex; align-items:center; justify-content:flex-end; gap:14px;
-                padding:14px 20px; border-top:1px solid var(--line); }
-  .modal-foot .deploy { width:auto; margin:0; padding:10px 24px; }
+                padding:12px 18px; border-top:1px solid var(--line); }
+  .modal-foot .deploy { width:auto; margin:0; padding:9px 22px; }
   .modal-foot .err-msg { margin:0; flex:1; }
-  .sect-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+  .sect-title { font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.08em;
                 color:var(--mut); margin:20px 0 2px; display:flex; align-items:center; gap:8px; }
-  .badge-lock { font-size:11px; padding:2px 8px; border-radius:20px; background:#3a2c12; color:var(--pend); }
-  .warn { font-size:12px; color:var(--pend); background:#241c0e; border:1px solid #5a4415;
-          border-radius:8px; padding:8px 10px; margin-top:8px; }
+  .badge-lock { font-size:11px; font-family:var(--mono-f); text-transform:lowercase; letter-spacing:0;
+                padding:1px 7px; border-radius:1px; border:1px solid var(--pend);
+                background:transparent; color:var(--pend); }
+  .warn { font-size:12px; color:var(--fg); background:transparent; border:1px solid var(--line);
+          border-left:2px solid var(--pend); border-radius:2px; padding:8px 10px; margin-top:8px; }
+  .warn code { color:var(--pend); }
+  .st-ok { color:var(--ok); font-weight:700; }
+  .st-err { color:var(--err); font-weight:700; }
 </style>
 </head>
 <body>
@@ -77,7 +104,7 @@
       <h1>VM Deployer</h1>
       <p class="sub">Clone a vCenter template into a new VM — static IP or DHCP, a sudo user, and SSH.</p>
     </div>
-    <button class="gear" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+    <button class="gear" id="settingsBtn" title="Settings" aria-label="Settings">&#x2699;&#xFE0E;</button>
   </div>
 
   <!-- Identity -->
@@ -363,7 +390,7 @@ async function poll(job) {
   renderSteps(j.step);
   if (j.status === "done") {
     $("result").className = "result ok";
-    $("result").innerHTML = `✅ <b>${j.vm}</b> is up on <span class="mono">${j.ip}</span><br>` +
+    $("result").innerHTML = `<span class="st-ok">✓</span> <b>${j.vm}</b> is up on <span class="mono">${j.ip}</span><br>` +
       `<span class="hint">Login: <code class="mono">ssh ${$("username").value}@${j.ip}</code> ` +
       `(give cloud-init ~30–60s)</span>`;
     resetBtn(); return;
@@ -371,7 +398,7 @@ async function poll(job) {
   if (j.status === "failed") {
     renderSteps("failed");
     $("result").className = "result err";
-    $("result").innerHTML = `❌ Deploy failed:<br><span class="mono">${j.error||"unknown error"}</span>`;
+    $("result").innerHTML = `<span class="st-err">✗</span> Deploy failed:<br><span class="mono">${j.error||"unknown error"}</span>`;
     resetBtn(); return;
   }
   setTimeout(()=>poll(job), 2500);
